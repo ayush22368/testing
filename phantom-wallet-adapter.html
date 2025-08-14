@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Universal Solana Wallet Connect</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.container {
+  max-width: 500px;
+  width: 100%;
+  background: rgba(30, 30, 30, 0.8);
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #9945ff;
+  font-size: 2rem;
+}
+
+.wallet-notice {
+  background: rgba(20, 184, 166, 0.1);
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  color: #14b8a6;
+  text-align: center;
+}
+
+button {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #9945ff 0%, #14b8a6 100%);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 15px;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(153, 69, 255, 0.5);
+}
+
+button:disabled {
+  background: #555;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.wallet-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.wallet-btn {
+  padding: 12px 8px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wallet-btn.selected {
+  background: #9945ff;
+  box-shadow: 0 0 10px rgba(153, 69, 255, 0.5);
+}
+
+.status, .result {
+  text-align: center;
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.9rem;
+  color: #ccc;
+  word-break: break-word;
+}
+
+.result.success {
+  background: rgba(20, 184, 166, 0.1);
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  color: #14b8a6;
+}
+
+.result.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.wallet-info {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+  display: none;
+}
+
+.wallet-info div {
+  margin-bottom: 5px;
+}
+
+.loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #9945ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.method-info {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 15px;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔗 Universal Wallet</h1>
+  
+  <div class="wallet-notice">
+    🛡️ This uses direct wallet detection - no domain restrictions!
+  </div>
+
+  <div class="method-info">
+    <strong>Current Method:</strong> <span id="currentMethod">Auto-detecting wallets...</span>
+  </div>
+
+  <div class="wallet-selector" id="walletSelector" style="display: none;">
+    <button class="wallet-btn" data-wallet="phantom">
+      👻 Phantom
+    </button>
+    <button class="wallet-btn" data-wallet="solflare">
+      ☀️ Solflare  
+    </button>
+    <button class="wallet-btn" data-wallet="backpack">
+      🎒 Backpack
+    </button>
+    <button class="wallet-btn" data-wallet="any">
+      🔍 Any Wallet
+    </button>
+  </div>
+
+  <button id="connectBtn">🔍 Detect Wallets</button>
+  
+  <div id="walletInfo" class="wallet-info">
+    <div><strong>Connected:</strong> <span id="walletName"></span></div>
+    <div><strong>Address:</strong> <span id="walletAddress"></span></div>
+    <div><strong>Balance:</strong> <span id="walletBalance"></span></div>
+  </div>
+  
+  <button id="sendBtn" disabled>💸 Send 0.01 SOL</button>
+
+  <div class="status" id="status">Ready to detect wallets</div>
+  <div class="result" id="result"></div>
+</div>
+
+<script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+<script>
+// Multiple RPC endpoints for redundancy
+const RPC_ENDPOINTS = [
+  "https://api.mainnet-beta.solana.com",
+  "https://solana-mainnet.g.alchemy.com/v2/demo",
+  "https://mainnet.helius-rpc.com/?api-key=16c003c2-609e-43d8-a08e-54aa99423e30"
+];
+
+const connectBtn = document.getElementById('connectBtn');
+const sendBtn = document.getElementById('sendBtn');
+const statusDiv = document.getElementById('status');
+const resultDiv = document.getElementById('result');
+const walletInfo = document.getElementById('walletInfo');
+const walletSelector = document.getElementById('walletSelector');
+const currentMethodSpan = document.getElementById('currentMethod');
+
+let selectedWallet = null;
+let connection = null;
+let provider = null;
+
+// Initialize connection
+connection = new solanaWeb3.Connection(RPC_ENDPOINTS[0], 'confirmed');
+
+const setStatus = (txt, isLoading = false) => {
+  statusDiv.innerHTML = isLoading ? `<div class="loading"></div>${txt}` : txt;
+};
+
+const setResult = (txt, type = 'info') => {
+  resultDiv.textContent = txt;
+  resultDiv.className = `result ${type}`;
+  resultDiv.style.display = txt ? 'block' : 'none';
+};
+
+// Universal wallet detection - bypasses domain restrictions
+const detectAvailableWallets = () => {
+  const wallets = [];
+  
+  // Check for various Solana wallets using multiple detection methods
+  
+  // Method 1: Direct window object check
+  if (typeof window !== 'undefined') {
+    // Phantom (multiple ways to detect)
+    if (window.solana?.isPhantom || window.phantom?.solana?.isPhantom) {
+      wallets.push({
+        name: 'Phantom',
+        provider: window.solana || window.phantom?.solana,
+        detected: 'window.solana'
+      });
+    }
+    
+    // Solflare
+    if (window.solflare?.isSolflare) {
+      wallets.push({
+        name: 'Solflare',
+        provider: window.solflare,
+        detected: 'window.solflare'
+      });
+    }
+    
+    // Backpack
+    if (window.backpack?.isBackpack) {
+      wallets.push({
+        name: 'Backpack', 
+        provider: window.backpack,
+        detected: 'window.backpack'
+      });
+    }
+    
+    // Glow
+    if (window.glowSolana?.isGlow) {
+      wallets.push({
+        name: 'Glow',
+        provider: window.glowSolana,
+        detected: 'window.glowSolana'
+      });
+    }
+    
+    // Slope
+    if (window.Slope) {
+      wallets.push({
+        name: 'Slope',
+        provider: window.Slope,
+        detected: 'window.Slope'
+      });
+    }
+    
+    // Math Wallet
+    if (window.solana?.isMathWallet) {
+      wallets.push({
+        name: 'Math Wallet',
+        provider: window.solana,
+        detected: 'window.solana (Math)'
+      });
+    }
+    
+    // Coin98
+    if (window.coin98?.sol) {
+      wallets.push({
+        name: 'Coin98',
+        provider: window.coin98.sol,
+        detected: 'window.coin98.sol'
+      });
+    }
+    
+    // Trust Wallet
+    if (window.trustwallet?.solana) {
+      wallets.push({
+        name: 'Trust Wallet',
+        provider: window.trustwallet.solana,
+        detected: 'window.trustwallet.solana'
+      });
+    }
+  }
+  
+  // Method 2: Event-based detection (EIP-6963 style for Solana)
+  const tryEventDetection = () => {
+    try {
+      // Some wallets announce themselves via events
+      window.dispatchEvent(new CustomEvent('solana:requestProvider'));
+    } catch (e) {
+      console.log('Event detection not supported');
+    }
+  };
+  
+  tryEventDetection();
+  
+  return wallets;
+};
+
+// Get wallet balance
+const getWalletBalance = async (publicKey) => {
+  try {
+    const balance = await connection.getBalance(publicKey);
+    return (balance / solanaWeb3.LAMPORTS_PER_SOL).toFixed(4);
+  } catch (err) {
+    console.error("Failed to get balance:", err);
+    return "Unknown";
+  }
+};
+
+// Connect to selected wallet using universal method
+const connectWallet = async (walletProvider) => {
+  try {
+    let response;
+    
+    // Try different connection methods based on wallet type
+    if (walletProvider.connect) {
+      // Standard Solana wallet interface
+      response = await walletProvider.connect();
+    } else if (walletProvider.postMessage) {
+      // PostMessage based wallets
+      response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+        
+        walletProvider.postMessage({
+          type: 'connect'
+        }, '*');
+        
+        const handler = (event) => {
+          if (event.data?.type === 'connect_response') {
+            clearTimeout(timeout);
+            window.removeEventListener('message', handler);
+            resolve(event.data.result);
+          }
+        };
+        
+        window.addEventListener('message', handler);
+      });
+    } else {
+      throw new Error('Unsupported wallet interface');
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Wallet connection failed:', error);
+    throw error;
+  }
+};
+
+// Wallet selector event listeners
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('wallet-btn')) {
+    document.querySelectorAll('.wallet-btn').forEach(btn => {
+      btn.classList.remove('selected');
+    });
+    e.target.classList.add('selected');
+    
+    const walletType = e.target.getAttribute('data-wallet');
+    currentMethodSpan.textContent = `Selected: ${e.target.textContent.trim()}`;
+  }
+});
+
+/* ---------- Detect and Connect ---------- */
+connectBtn.onclick = async () => {
+  try {
+    setStatus("🔍 Scanning for wallets...", true);
+    connectBtn.disabled = true;
+    setResult('');
+    
+    // Wait a moment for wallets to load
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const availableWallets = detectAvailableWallets();
+    
+    if (availableWallets.length === 0) {
+      walletSelector.style.display = 'grid';
+      setStatus("❌ No wallets detected. Please install a Solana wallet.");
+      setResult("Install Phantom, Solflare, or another Solana wallet extension.", 'error');
+      connectBtn.disabled = false;
+      connectBtn.textContent = "🔄 Try Again";
+      return;
+    }
+    
+    // Use the first available wallet or let user choose
+    selectedWallet = availableWallets[0];
+    
+    setStatus(`🔗 Connecting to ${selectedWallet.name}...`, true);
+    currentMethodSpan.textContent = `Using: ${selectedWallet.name} (${selectedWallet.detected})`;
+    
+    // Connect using universal method
+    const response = await connectWallet(selectedWallet.provider);
+    provider = selectedWallet.provider;
+    
+    // Get wallet info
+    const publicKey = response.publicKey || response.account?.publicKey;
+    if (!publicKey) throw new Error('No public key received');
+    
+    const address = publicKey.toString();
+    const balance = await getWalletBalance(publicKey);
+    
+    // Update UI
+    document.getElementById('walletName').textContent = selectedWallet.name;
+    document.getElementById('walletAddress').textContent = `${address.slice(0, 8)}...${address.slice(-8)}`;
+    document.getElementById('walletBalance').textContent = `${balance} SOL`;
+    walletInfo.style.display = 'block';
+    
+    setStatus("✅ Wallet connected successfully!");
+    sendBtn.disabled = false;
+    connectBtn.textContent = "✅ Connected";
+    connectBtn.style.background = "#14b8a6";
+    
+  } catch (err) {
+    console.error("Connection error:", err);
+    setStatus("❌ Connection failed");
+    setResult(`Failed: ${err.message}`, 'error');
+    connectBtn.disabled = false;
+    
+    // Show wallet selector for retry
+    walletSelector.style.display = 'grid';
+  }
+};
+
+/* ---------- Send Transaction ---------- */
+sendBtn.onclick = async () => {
+  try {
+    sendBtn.disabled = true;
+    setStatus("📝 Creating transaction...", true);
+    setResult('');
+    
+    // Create transaction
+    const transaction = new solanaWeb3.Transaction();
+    
+    const publicKey = provider.publicKey || (await provider.connect()).publicKey;
+    
+    // Add transfer instruction (to self)
+    const transferInstruction = solanaWeb3.SystemProgram.transfer({
+      fromPubkey: publicKey,
+      toPubkey: publicKey,
+      lamports: Math.floor(0.01 * solanaWeb3.LAMPORTS_PER_SOL)
+    });
+    
+    transaction.add(transferInstruction);
+    
+    // Get recent blockhash
+    setStatus("🌐 Getting network info...", true);
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = publicKey;
+    
+    setStatus("✍️ Please sign in your wallet...", true);
+    
+    // Sign transaction using universal method
+    let signedTransaction;
+    
+    if (provider.signAndSendTransaction) {
+      // Method 1: Direct sign and send
+      signedTransaction = await provider.signAndSendTransaction(transaction);
+    } else if (provider.signTransaction) {
+      // Method 2: Sign then send separately
+      const signed = await provider.signTransaction(transaction);
+      const signature = await connection.sendRawTransaction(signed.serialize());
+      signedTransaction = { signature };
+    } else {
+      throw new Error('Wallet does not support transaction signing');
+    }
+    
+    setStatus("⏳ Confirming transaction...", true);
+    
+    // Wait for confirmation
+    const confirmation = await connection.confirmTransaction(signedTransaction.signature, 'confirmed');
+    
+    if (confirmation.value.err) {
+      throw new Error(`Transaction failed: ${confirmation.value.err}`);
+    }
+    
+    setResult(`✅ Success! Tx: ${signedTransaction.signature}`, 'success');
+    setStatus("✅ Transaction confirmed!");
+    
+    // Update balance
+    const newBalance = await getWalletBalance(publicKey);
+    document.getElementById('walletBalance').textContent = `${newBalance} SOL`;
+    
+  } catch (err) {
+    console.error("Transaction error:", err);
+    setStatus("❌ Transaction failed");
+    
+    if (err.message.includes('User rejected') || err.message.includes('cancelled')) {
+      setResult("❌ Transaction cancelled by user", 'error');
+    } else {
+      setResult(`❌ Failed: ${err.message}`, 'error');
+    }
+  } finally {
+    sendBtn.disabled = false;
+  }
+};
+
+// Auto-detect on page load
+document.addEventListener('DOMContentLoaded', () => {
+  setStatus("Ready! Click 'Detect Wallets' to scan for available wallets.");
+  currentMethodSpan.textContent = "Universal wallet detection ready";
+  
+  // Auto-detect after a short delay
+  setTimeout(() => {
+    const wallets = detectAvailableWallets();
+    if (wallets.length > 0) {
+      currentMethodSpan.textContent = `Found: ${wallets.map(w => w.name).join(', ')}`;
+    }
+  }, 1000);
+});
+</script>
+</body>
+</html>
